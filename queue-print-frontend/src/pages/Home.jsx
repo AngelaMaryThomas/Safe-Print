@@ -1,57 +1,77 @@
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Printer, ArrowRight, Zap } from 'lucide-react';
-import { socket } from '../socket';
+import React from 'react';
+import { Link } from 'react-router-dom';
 
-export default function Home() {
-  const navigate = useNavigate();
-
-  const startSession = () => {
-    // Navigate to dashboard
-    navigate('/dashboard');
+function Home() {
+  const styles = {
+    container: {
+      padding: '40px',
+      textAlign: 'center',
+      fontFamily: 'sans-serif',
+      color: '#333'
+    },
+    title: {
+      fontSize: '3rem',
+      marginBottom: '20px'
+    },
+    description: {
+      fontSize: '1.2rem',
+      color: '#666',
+      maxWidth: '600px',
+      margin: '0 auto 30px auto'
+    },
+    rolesContainer: {
+      display: 'flex',
+      justifyContent: 'center',
+      gap: '30px',
+      marginTop: '40px'
+    },
+    roleCard: {
+      background: '#f8f9fa',
+      border: '1px solid #dee2e6',
+      borderRadius: '8px',
+      padding: '30px',
+      width: '250px',
+      boxShadow: '0 4px 8px rgba(0,0,0,0.05)'
+    },
+    roleTitle: {
+      fontSize: '1.5rem',
+      marginBottom: '15px'
+    },
+    roleDescription: {
+      marginBottom: '20px'
+    },
+    button: {
+      display: 'inline-block',
+      padding: '10px 20px',
+      backgroundColor: '#007bff',
+      color: 'white',
+      textDecoration: 'none',
+      borderRadius: '5px',
+      transition: 'background-color 0.3s'
+    }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen relative overflow-hidden">
-      {/* Ambient Background Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none" />
+    <div style={styles.container}>
+      <h1 style={styles.title}>Welcome to Safe Print</h1>
+      <p style={styles.description}>
+        A secure and simple way to handle print jobs. Customers can upload files without seeing others' documents, and the shopkeeper manages a real-time queue.
+      </p>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="z-10 text-center space-y-8 max-w-2xl px-6"
-      >
-        <div className="inline-flex items-center justify-center p-4 bg-surface border border-border rounded-2xl shadow-2xl mb-4">
-          <Printer className="w-10 h-10 text-primary" />
+      <div style={styles.rolesContainer}>
+        <div style={styles.roleCard}>
+          <h2 style={styles.roleTitle}>For the Shopkeeper</h2>
+          <p style={styles.roleDescription}>Manage the print queue, start/end sessions, and print files from your dashboard.</p>
+          <Link to="/dashboard" style={styles.button}>Go to Dashboard</Link>
         </div>
-
-        <h1 className="text-6xl md:text-7xl font-bold tracking-tighter text-white">
-          Queue<span className="text-primary">Print</span>
-        </h1>
-        
-        <p className="text-zinc-400 text-xl font-light">
-          The instant batch printing system for high-traffic environments.
-          <br /> One QR code. Infinite uploads.
-        </p>
-
-        <div className="pt-8">
-            <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={startSession}
-            className="group relative inline-flex items-center gap-3 px-10 py-4 bg-white text-black font-bold rounded-full text-lg shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:shadow-[0_0_60px_-15px_rgba(255,255,255,0.5)] transition-all"
-            >
-            Start Session
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </motion.button>
+        <div style={styles.roleCard}>
+          <h2 style={styles.roleTitle}>For the QR Display</h2>
+          <p style={styles.roleDescription}>Use a phone or tablet to show the QR code to customers.</p>
+          <Link to="/display" style={styles.button}>Open QR Display</Link>
         </div>
-      </motion.div>
-      
-      {/* Footer Branding */}
-      <div className="absolute bottom-8 text-zinc-600 text-sm font-mono flex items-center gap-2">
-        <Zap className="w-3 h-3" /> POWERED BY SOCKET.IO
       </div>
     </div>
   );
 }
+
+export default Home;

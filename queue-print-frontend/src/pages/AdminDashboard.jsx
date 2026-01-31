@@ -1,164 +1,156 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, X, Printer, Smartphone, LogOut, Clock } from 'lucide-react';
-import { socket, API_URL } from '../socket';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { socket } from '../socket';
+import './AdminDashboard.css';
 
-export default function AdminDashboard() {
+function AdminDashboard() {
+  const [session, setSession] = useState(null);
   const [files, setFiles] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [printedFiles, setPrintedFiles] = useState(new Set());
 
   useEffect(() => {
-    // Listen for incoming files
-    socket.on('new-file-received', (file) => {
-      setFiles((prev) => [file, ...prev]);
-    });
+    socket.connect();
 
-    socket.on('session-reset', () => setFiles([]));
+    function onSessionStarted(data) {
+      console.log('Session started:', data);
+      setSession(data);
+      setFiles([]); // Clear files from previous session
+      setPrintedFiles(new Set());
+      setError('');
+      // Join the room for this session to receive updates
+      socket.emit('join-session', data.sessionId);
+    }
+
+    function onSessionEnded() {
+      alert('Session has ended. All files have been deleted.');
+      setSession(null);
+      setFiles([]);
+      setPrintedFiles(new Set());
+    }
+
+    function onFileUploaded(file) {
+        console.log('File uploaded:', file);
+        // Add a 'new' class for animation
+        setFiles(prevFiles => [...prevFiles, { ...file, isNew: true }]);
+        
+        // Remove the 'new' class after the animation
+        setTimeout(() => {
+            setFiles(prevFiles => prevFiles.map(f => f.id === file.id ? { ...f, isNew: false } : f));
+        }, 500);
+    }
+    
+    function onFileList(fileList) {
+        setFiles(fileList);
+    }
+
+    function onFilePrinted({ fileName }) {
+        setPrintedFiles(prev => new Set(prev).add(fileName));
+    }
+
+    function onError(err) {
+      console.error('Backend Error:', err);
+      setError(err.message);
+    }
+
+    socket.on('session-started', onSessionStarted);
+    socket.on('session-ended', onSessionEnded);
+    socket.on('file-uploaded', onFileUploaded);
+    socket.on('file-list', onFileList);
+    socket.on('file-printed', onFilePrinted);
+    socket.on('error', onError);
 
     return () => {
-      socket.off('new-file-received');
-      socket.off('session-reset');
+      socket.off('session-started', onSessionStarted);
+      socket.off('session-ended', onSessionEnded);
+      socket.off('file-uploaded', onFileUploaded);
+      socket.off('file-list', onFileList);
+      socket.off('file-printed', onFilePrinted);
+      socket.off('error', onError);
+      socket.disconnect();
     };
   }, []);
 
-  const handleEndSession = async () => {
-    if (confirm("Are you sure? This will NUKE all files.")) {
-      try {
-        await fetch(`${API_URL}/nuke`, { method: 'POST' });
-        navigate('/');
-      } catch (e) {
-        alert("Error ending session");
-      }
+  const handleStartSession = () => {
+    socket.emit('start-session');
+  };
+
+  const handleEndSession = () => {
+    if (session && window.confirm('Are you sure you want to end the session? All unprinted files will be permanently deleted.')) {
+      socket.emit('end-session', session.sessionId);
     }
   };
 
+  const handlePrintFile = (fileName) => {
+    if (session) {
+      socket.emit('print-file', { sessionId: session.sessionId, fileName: fileName });
+    }
+  };
+
+  const formatBytes = (bytes, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+
+
   return (
-    <div className="min-h-screen p-6 md:p-10 pb-24 relative">
+    <div className="admin-dashboard">
+      <header className="dashboard-header">
+        <h1>Shopkeeper Dashboard</h1>
+        {!session ? (
+          <button onClick={handleStartSession} className="session-button start">Start New Print Session</button>
+        ) : (
+          <button onClick={handleEndSession} className="session-button end">End Session</button>
+        )}
+      </header>
       
-      {/* Header */}
-      <header className="flex justify-between items-center mb-10 border-b border-border pb-6">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
-          <div className="flex items-center gap-2 text-zinc-500 mt-1 text-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            Live Session Active
+      {error && <div className="error-message">Error: {error}</div>}
+
+      {!session ? (
+        <div className="no-session">
+          <h2>Welcome to Safe Print!</h2>
+          <p>Click "Start New Print Session" to begin.</p>
+          <p>A QR code will be generated for customers to scan and upload their files.</p>
+        </div>
+      ) : (
+        <div className="session-active">
+          <h2>Session Active: {session.sessionId}</h2>
+          <div className="print-queue-container">
+            <h3>Print Queue</h3>
+            {files.length === 0 ? (
+              <p className="empty-queue-message">Waiting for files...</p>
+            ) : (
+              <ul className="file-list">
+                {files.map((file) => (
+                  <li key={file.id} className={`file-item ${file.isNew ? 'new-file-animation' : ''} ${printedFiles.has(file.name) ? 'printed' : ''}`}>
+                    <div className="file-info">
+                      <span className="file-name">#{file.id} - {file.name}</span>
+                      <span className="file-meta">
+                        {formatBytes(file.size)} | {new Date(file.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => handlePrintFile(file.name)} 
+                      className="print-button"
+                      disabled={printedFiles.has(file.name)}
+                    >
+                      {printedFiles.has(file.name) ? 'Printed' : 'Print'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
-        
-        <button 
-          onClick={() => window.open('/qr', '_blank')} 
-          className="flex items-center gap-2 text-sm font-medium bg-surface hover:bg-zinc-800 text-zinc-200 px-5 py-2.5 rounded-lg border border-border transition-all"
-        >
-          <Smartphone className="w-4 h-4" />
-          View QR
-        </button>
-      </header>
-
-      {/* Empty State */}
-      {files.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-[50vh] border-2 border-dashed border-zinc-800 rounded-3xl text-zinc-600">
-            <Clock className="w-12 h-12 mb-4 opacity-20" />
-            <p className="text-lg">Waiting for scans...</p>
-        </div>
       )}
-
-      {/* File List Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <AnimatePresence>
-          {files.map((file) => (
-            <motion.div
-              key={file.id}
-              layout
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              whileHover={{ scale: 1.02 }}
-              onClick={() => setSelectedFile(file)}
-              className="glass group cursor-pointer p-5 rounded-2xl hover:border-zinc-600 transition-all shadow-lg"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="bg-zinc-800 p-3 rounded-xl">
-                  <FileText className="w-6 h-6 text-primary" />
-                </div>
-                <span className="text-xs font-mono font-bold bg-zinc-800 text-primary px-2 py-1 rounded">
-                  #{file.ticket}
-                </span>
-              </div>
-              <h3 className="font-semibold text-white truncate pr-2">{file.name}</h3>
-              <p className="text-zinc-500 text-xs mt-1 font-mono">{file.size}</p>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-
-      {/* Floating End Session Button (Bottom Right) */}
-      <div className="fixed bottom-8 right-8 z-40">
-        <button 
-            onClick={handleEndSession}
-            className="flex items-center gap-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-8 py-4 rounded-full font-bold shadow-2xl backdrop-blur-md transition-all hover:scale-105 hover:shadow-red-900/20"
-        >
-            <LogOut className="w-5 h-5" />
-            End Session
-        </button>
-      </div>
-
-      {/* Print Preview Modal */}
-      <AnimatePresence>
-        {selectedFile && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          >
-            <motion.div 
-              initial={{ y: 50, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 50, scale: 0.95 }}
-              className="bg-surface w-full max-w-md rounded-3xl border border-border shadow-2xl overflow-hidden"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-8">
-                    <h3 className="text-lg font-bold text-white">Print Preview</h3>
-                    <button onClick={() => setSelectedFile(null)} className="p-2 hover:bg-zinc-800 rounded-full transition"><X className="w-5 h-5" /></button>
-                </div>
-                
-                <div className="bg-background py-12 rounded-2xl border border-zinc-800 flex flex-col items-center justify-center mb-8">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full"></div>
-                        <FileText className="relative w-20 h-20 text-white mb-4" />
-                    </div>
-                    <p className="text-center font-bold text-xl px-4 truncate w-full">{selectedFile.name}</p>
-                    <p className="text-zinc-500 text-sm mt-2">{selectedFile.size} • PDF Document</p>
-                    <div className="mt-4 bg-zinc-800 px-3 py-1 rounded text-xs font-mono text-zinc-400">
-                        Ticket #{selectedFile.ticket}
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <button 
-                        onClick={() => setSelectedFile(null)}
-                        className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-4 rounded-xl transition"
-                    >
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={() => {
-                            alert(`Sent ${selectedFile.name} to printer!`);
-                            setSelectedFile(null);
-                        }}
-                        className="w-full bg-primary hover:bg-primary-hover text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg shadow-primary/25"
-                    >
-                        <Printer className="w-5 h-5" />
-                        Print
-                    </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
+
+import './AdminDashboard.css';
+
+
+export default AdminDashboard;

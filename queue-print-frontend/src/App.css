@@ -40,3 +40,39 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Styles moved from App.jsx */
+.main-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #333;
+  color: white;
+  /* Resetting some root styles for the nav bar */
+  max-width: none;
+  margin: 0;
+  text-align: left;
+}
+.nav-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+  text-decoration: none;
+}
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  margin-left: 1.5rem;
+  transition: color 0.3s;
+}
+.nav-links a:hover {
+  color: #007bff;
+}
+main {
+  /* Resetting root styles for the main content area */
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}

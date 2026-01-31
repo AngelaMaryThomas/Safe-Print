@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { display: flex; height: 100vh; margin: 0; background: #1e1e1e; color: white; font-family: monospace; }
+        .sidebar { width: 250px; background: #252526; padding: 20px; border-right: 1px solid #333; }
+        .main { flex: 1; display: flex; flex-direction: column; }
+        iframe { flex: 1; background: white; border: none; }
+        li { padding: 10px; cursor: pointer; border-bottom: 1px solid #333; } li:hover { background: #444; }
+        #qrcode { background: white; padding: 10px; width: 128px; margin: 20px auto; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3>FILES (RAM)</h3>
+        <ul id="list"></ul>
+        <div id="qrcode"></div>
+    </div>
+    <div class="main">
+        <iframe id="frame"></iframe>
+        <button onclick="printFile()" style="padding: 20px; background: #007acc; color: white; font-size: 18px; border: none; cursor: pointer;">🖨 PRINT DOCUMENT</button>
+    </div>
+    <script>
+        let active = "";
+        new QRCode(document.getElementById("qrcode"), { text: "{{ upload_url }}", width: 128, height: 128 });
+        
+        setInterval(async () => {
+            let files = await fetch("/files").then(r=>r.json());
+            document.getElementById("list").innerHTML = files.map(f => `<li onclick="load('${f}')">${f}</li>`).join("");
+        }, 2000);
+        
+        function load(f) { active=f; document.getElementById("frame").src = "/preview/"+f; }
+        function printFile() { fetch("/print?file="+active); alert("Printing..."); }
+    </script>
+</body>
+</html>

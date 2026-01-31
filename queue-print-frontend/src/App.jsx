@@ -1,20 +1,25 @@
-import { Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import AdminDashboard from './pages/AdminDashboard';
-import QRDisplay from './pages/QRDisplay';
-import UserUpload from './pages/UserUpload';
+import React from 'react';
+import { Outlet, Link } from 'react-router-dom';
+import './App.css';
 
 function App() {
   return (
-    <div className="min-h-screen selection:bg-primary/30">
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/dashboard" element={<AdminDashboard />} />
-        <Route path="/qr" element={<QRDisplay />} />
-        <Route path="/upload" element={<UserUpload />} />
-      </Routes>
+    <div>
+      <nav className="main-nav">
+        <Link to="/" className="nav-logo">Safe Print</Link>
+        <div className="nav-links">
+          <Link to="/dashboard">Shopkeeper Dashboard</Link>
+          <Link to="/display">QR Display (Phone)</Link>
+        </div>
+      </nav>
+      <main>
+        <Outlet />
+      </main>
     </div>
   );
 }
+
+
+
 
 export default App;
